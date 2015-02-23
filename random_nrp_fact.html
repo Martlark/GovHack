@@ -7,8 +7,6 @@
         <script src="https://www.google.com/jsapi"></script>
 
         <script>
-            google.load('search', '1');
-            var imageSearch;
             var serviceUrl = 'http://stat.abs.gov.au/itt/query.jsp?method=';
             var methodCodeList = 'GetCodeListValue&format=json&callback=?';
             var methodData = 'GetGenericData&callback=?';
@@ -202,49 +200,17 @@
                 $('#desc').html(s);
                 $('#repeat').show();
 
-
-                // Find me a beautiful image.
-                imageSearch.execute(measure);
                 return true;
-            }
-
-            function searchComplete() {
-
-                // Check that we got results
-                if (imageSearch.results && imageSearch.results.length > 0) {
-
-                    // Loop through our results, printing them to the page.
-                    var results = imageSearch.results;
-                    for (var i = 0; i < results.length; i++) {
-                        // For each result write it's title and image to the screen
-                        var result = results[i];
-
-                        $('#googleImage').html('<img src="{0}"></img>'.format(result.url));
-                        break;
-                    }
-                }
             }
 
 
             $(document).ready(function() {
-                initGoogleImageSearch();
                 getCategories(dataConcept);
                 $('#repeat').click(function() {
                     dataset = randomChoice(datasetids);
                     getCategories(dataConcept);
                 });
             });
-            function initGoogleImageSearch() {
-                // Create an Image Search instance.
-                imageSearch = new google.search.ImageSearch();
-
-                // Set searchComplete as the callback function when a search is 
-                // complete.  The imageSearch object will have results in it.
-                imageSearch.setSearchCompleteCallback(this, searchComplete, null);
-
-                // Include the required Google branding
-                google.search.Search.getBranding('branding');
-            }
         </script>
         <style>
             table  { background-color:#eee;border-collapse:collapse; }
