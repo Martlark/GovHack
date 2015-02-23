@@ -65,6 +65,7 @@
                         getAllRegions();
                     }
                 }).fail(function(jqxhr, textStatus, error) {
+					$('#repeat').show();
                     log(textStatus + ' error ' + error);
                 });
             }
@@ -112,6 +113,7 @@
                     }
                 }).fail(function(jqxhr, textStatus, error) {
                     log(textStatus + ' error ' + error);
+					$('#repeat').show();
                 }).done(function() {
                     if (!makeDescription()) {
                         getCategories();
