@@ -111,6 +111,9 @@
                 });
             }
 
+			/**
+				create a human readable description from the return result
+			*/
             function makeDescription() {
                 var measure = $('#item').text();
                 var measureCategory = '{0} ({1})'.format(measure.slice(0, measure.indexOf('- ')).trim(), dataset.regionType);
@@ -146,8 +149,11 @@
                 }
                 var starts = ['Did you know that for {measure}: ', 'ABS statistics for {measure} show that:', 'Interesting statistics for {measure} is that:'];
                 var s = '<h2>{measureCategory}</h2>' + randomChoice(starts);
-                s += randomChoice([' the highest value region was {topName} in {topState} with {topValue} {measureDesc} and the lowest value region was {bottomName} in {bottomState} with {bottomValue} {measureDesc}. ',
-                    '<ul><li>Highest {topName} - {topState}</li><li>{topValue} {measureType}</li><li>Lowest {bottomName} - {bottomState}</li><li>{bottomValue} {measureType}</li></ul>']);
+                s += randomChoice([
+				' the highest value region was {topName} in {topState} with {topValue} {measureDesc} and the lowest value region was {bottomName} in {bottomState} with {bottomValue} {measureDesc}. ',
+				' the best region is {topName} in {topState} and has {topValue} {measureDesc} whilst the worst region is {bottomName} in {bottomState} at {bottomValue} {measureDesc}.',
+                '<ul><li>Highest {topName} - {topState}</li><li>{topValue} {measureType}</li><li>Lowest {bottomName} - {bottomState}</li><li>{bottomValue} {measureType}</li></ul>'
+				]);
                 s += randomChoice(['The average value of {count} regions was {average} {measureDesc}.', 'There were {count} regions with an average of {average} {measureDesc}. ']);
                 function nameReplace(s, name, value) {
                     var rn = '\{' + name + '\}';
@@ -219,9 +225,6 @@
             #repeat {
                 height: 50px;
                 width: 20em;
-            }
-            #googleImage img {
-                width: 80%;
             }
 			#desc ul li:nth-child(even){
 				margin-left: 1em;
