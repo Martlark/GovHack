@@ -68,6 +68,12 @@
                     log(textStatus + ' error ' + error);
                 });
             }
+			/**
+			return the string of the given code in the given code list
+			@param codes - list of codes
+			@param code - the code to look up
+			@returns {string} - the description
+			*/
             function getCodeDescription(codes, code) {
                 var s = '';
                 $.each(codes, function() {
@@ -80,7 +86,7 @@
             }
 
             function getAllRegions() {
-                $('#result').html('<img src="ajax-loader.gif"/>');
+                waiting('#result');
                 var url = serviceUrl + methodData;
                 var measure = $('#itemCode').val();
                 var and = dataConcept + '.' + measure + ',REGIONTYPE.' + dataset.regionType;
