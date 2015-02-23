@@ -27,7 +27,9 @@
             function randomChoice(items) {
                 return items[Math.floor(Math.random() * items.length)];
             }
-
+		/**
+		  log to the list at the bottom of the screen
+		  */
             function log(text) {
                 text = text.replace(/&/g, "&amp;").replace(/>/g, "&gt;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
                 $('#log').append("<li>" + text + "</li>");
