@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en-us">
+    <head>
+        <title>Did you Know?</title>
+        <script src="https://www.google.com/jsapi"></script>
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+        <script src="https://www.google.com/jsapi"></script>
+
+        <script>
+            var serviceUrl = 'http://stat.abs.gov.au/itt/query.jsp?method=';
+            var methodCodeList = 'GetCodeListValue&format=json&callback=?';
+            var methodData = 'GetGenericData&callback=?';
+            var regionConcept = 'REGION';
+            var dataConcept = 'MEASURE';
+            var datasetids = [{id: 'ABS_NRP9_LGA', regionType: 'LGA2012'}, {id: 'ABS_NRP9_ASGS', regionType: 'SA4'}];
+            var dataset = {id: '', regionType: ''};
+            var states = ['Australia', 'New South Wales', 'Victora', 'Queensland', 'South Australia', 'Western Australia', 'Tasmania', 'the Northern Territory', 'the ACT'];
+
+            function waiting(place) {
+                $(place).html('<p>Waiting for result</p><img src="ajax-loader.gif"/>');
+            }
+            /**
+             * picks a random item from a list of items
+             * @param items list of items to choose from
+             * @returns {object} list item
+             */
+            function randomChoice(items) {
+                return items[Math.floor(Math.random() * items.length)];
+            }
+
+            function log(text) {
+                text = text.replace(/&/g, "&amp;").replace(/>/g, "&gt;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+                $('#log').append("<li>" + text + "</li>");
+            }
+            // http://stackoverflow.com/questions/610406/javascript-equivalent-to-printf-string-format
+            // example: "{0} is dead, but {1} is alive! {0} {2}".format("ASP", "ASP.NET")
+            // first, checks if it isn't implemented yet
+            if (!String.prototype.format) {
+                String.prototype.format = function() {
+                    var args = arguments;
+                    return this.replace(/{(\d+)}/g, function(match, number) {
+                        return typeof args[number] !== 'undefined'
+                                ? args[number]
+                                : match
+                                ;
+                    });
+                };
+            }
+            function getCategories(concept) {
+                $('#repeat').hide();
+                dataset = randomChoice(datasetids);
+                var url = serviceUrl + methodCodeList;
+                log(url);
+                waiting('#desc');
+                $.getJSON(url, {datasetid: dataset.id, concept: concept}, function(data) {
+                    if (data.exception) {
+                        log('getCategories ITT error ' + data.exception);
+                    } else {
+                        var measureCodes = data.codes;
+                        var measure = randomChoice(measureCodes);
+                        $('#item').html(measure.description);
+                        $('#itemCode').val(measure.code);
+                        getAllRegions();
+                    }
+                }).fail(function(jqxhr, textStatus, error) {
+                    log(textStatus + ' error ' + error);
+                });
+            }
+            function getCodeDescription(codes, code) {
+                var s = '';
+                $.each(codes, function() {
+                    if (this.code == code) {
+                        s = this.description;
+                        return false;
+                    }
+                });
+                return s;
+            }
+
+            function getAllRegions() {
+                $('#result').html('<img src="ajax-loader.gif"/>');
+                var url = serviceUrl + methodData;
+                var measure = $('#itemCode').val();
+                var and = dataConcept + '.' + measure + ',REGIONTYPE.' + dataset.regionType;
+                var or = regionConcept;
+
+                log(url+and+or);
+                waiting($('#result'));
+                $.getJSON(url, {datasetid: dataset.id, series: 'latest', gt: 0, and: and, or: or, format: 'htable'}, function(data) {
+                    if (data.exception) {
+                        log(measure + ' ITT error ' + data.exception);
+                    } else {
+                        $($('#result')).html(data.text);
+                        // add the state to the table
+                        $('#result table').find('tr').each(function(index) {
+                            if (index == 0) {
+                                $(this).find('th').eq(0).after('<th>State</th>');
+                            } else {
+                                var td = $(this).find('td').eq(0);
+                                var stName = states[Number(td.text()[0])];
+                                td.after('<td>' + stName + '</td>');
+                            }
+                        });
+                    }
+                }).fail(function(jqxhr, textStatus, error) {
+                    log(textStatus + ' error ' + error);
+                }).done(function() {
+                    if (!makeDescription()) {
+                        getCategories();
+                    }
+                });
+            }
+
+			/**
+				create a human readable description from the return result
+			*/
+            function makeDescription() {
+                var measure = $('#item').text();
+                var measureCategory = '{0} ({1})'.format(measure.slice(0, measure.indexOf('- ')).trim(), dataset.regionType);
+                var measureType = measure.slice(measure.lastIndexOf('(') + 1, measure.lastIndexOf(')'));
+                measure = measure.slice(measure.indexOf('- ') + 2, measure.indexOf('(')).trim();
+                var measureDesc = 'value';
+                switch (measureType) {
+                    case '%':
+                        measureDesc = 'percent';
+                        break;
+                    case 'no.':
+                        measureDesc = '';
+                        break;
+                    case "$'000":
+                        measureDesc = 'thousand dollars';
+                        break;
+                    case '$':
+                        measureDesc = 'dollars';
+                        break;
+                    case '$m':
+                        measureDesc = 'million dollars';
+                        break;
+                    case 'ha':
+                        measureDesc = 'hectares';
+                        break;
+                    case 'per 1000':
+                        measureDesc = 'per one thousand';
+                        break;
+                    case 'years':
+                        measureDesc = 'years';
+                        break;
+
+                }
+                var starts = ['Did you know that for {measure}: ', 'ABS statistics for {measure} show that:', 'Interesting statistics for {measure} is that:'];
+                var s = '<h2>{measureCategory}</h2>' + randomChoice(starts);
+                s += randomChoice([
+				' the highest value region was {topName} in {topState} with {topValue} {measureDesc} and the lowest value region was {bottomName} in {bottomState} with {bottomValue} {measureDesc}. ',
+				' the best region is {topName} in {topState} and has {topValue} {measureDesc} whilst the worst region is {bottomName} in {bottomState} at {bottomValue} {measureDesc}.',
+                '<ul><li>Highest {topName} - {topState}</li><li>{topValue} {measureType}</li><li>Lowest {bottomName} - {bottomState}</li><li>{bottomValue} {measureType}</li></ul>'
+				]);
+                s += randomChoice(['The average value of {count} regions was {average} {measureDesc}.', 'There were {count} regions with an average of {average} {measureDesc}. ']);
+                function nameReplace(s, name, value) {
+                    var rn = '\{' + name + '\}';
+                    if (!value) {
+                        value = '';
+                    }
+                    while (s.indexOf(rn) >= 0) {
+                        s = s.replace(rn, value);
+                    }
+                    return s;
+                }
+                var count = 0, total = 0.0;
+                var highValue = -1, lowValue = Infinity;
+                var topState, topName, bottomState, bottomName;
+                $('#result tbody tr').each(function() {
+                    var tds = $('td', this);
+
+                    if (!isNaN($(tds[3]).text())) {
+                        count++;
+                        var v = Number($(tds[3]).text());
+                        total += v;
+                        if (v > highValue) {
+                            highValue = v;
+                            topState = $(tds[1]).text();
+                            topName = $(tds[2]).text();
+                        }
+                        if (v < lowValue) {
+                            lowValue = v;
+                            bottomState = $(tds[1]).text();
+                            bottomName = $(tds[2]).text();
+                        }
+                    }
+                });
+                if (count < 1) {
+                    return false;
+                }
+                var average = count > 0 ? total / count : 0;
+                s = nameReplace(s, 'topState', topState);
+                s = nameReplace(s, 'topName', topName);
+                s = nameReplace(s, 'topValue', highValue);
+                s = nameReplace(s, 'bottomState', bottomState);
+                s = nameReplace(s, 'bottomName', bottomName);
+                s = nameReplace(s, 'bottomValue', lowValue);
+                s = nameReplace(s, 'measureDesc', measureDesc);
+                s = nameReplace(s, 'measureType', measureType);
+                s = nameReplace(s, 'measureCategory', measureCategory);
+                s = nameReplace(s, 'measure', measure);
+                s = nameReplace(s, 'average', average.toFixed(2));
+                s = nameReplace(s, 'count', count);
+                $('#desc').html(s);
+                $('#repeat').show();
+
+                return true;
+            }
+
+
+            $(document).ready(function() {
+                getCategories(dataConcept);
+                $('#repeat').click(function() {
+                    dataset = randomChoice(datasetids);
+                    getCategories(dataConcept);
+                });
+            });
+        </script>
+        <style>
+            table  { background-color:#eee;border-collapse:collapse; }
+            th { background-color:#000;color:white; }
+            td { padding:5px;border:1px solid #000; }
+            #repeat {
+                height: 50px;
+                width: 20em;
+            }
+			#desc ul li:nth-child(even){
+				margin-left: 1em;
+			}
+        </style>
+    </head>
+    <body>
+        <h1>Did you know?</h1>
+        <div id='desc'></div>
+        <button id='repeat'>Get another fact</button>
+        <div id="branding"></div><br />
+        <div id="googleImage"></div>
+        <div style='display:none'>
+            <h3 id='item'></h3>
+            <input id='itemCode' value=''/>
+            <h3 style='clear: both'>Event log</h3>
+            <div id='result'></div>
+        </div>
+            <ul id='log'></ul>
+
+    </body>
+</html>
