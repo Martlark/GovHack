@@ -144,7 +144,7 @@
                         break;
 
                 }
-                var starts = ['Did you know that for {measure} ', 'ABS statistics for {measure} show ', 'Interesting statistics for {measure} is that'];
+                var starts = ['Did you know that for {measure}: ', 'ABS statistics for {measure} show that:', 'Interesting statistics for {measure} is that:'];
                 var s = '<h2>{measureCategory}</h2>' + randomChoice(starts);
                 s += randomChoice([' the highest value region was {topName} in {topState} with {topValue} {measureDesc} and the lowest value region was {bottomName} in {bottomState} with {bottomValue} {measureDesc}. ',
                     '<ul><li>Highest {topName} - {topState}</li><li>{topValue} {measureType}</li><li>Lowest {bottomName} - {bottomState}</li><li>{bottomValue} {measureType}</li></ul>']);
@@ -223,6 +223,9 @@
             #googleImage img {
                 width: 80%;
             }
+			#desc ul li:nth-child(even){
+				margin-left: 1em;
+			}
         </style>
     </head>
     <body>
