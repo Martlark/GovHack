@@ -1,0 +1,112 @@
+<html>
+	<head>
+		<script src="https://www.google.com/jsapi"></script>
+		<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+		<script>
+			var codes = [], serviceUrl = 'http://stat.abs.gov.au/itt/query.jsp?method=';
+			var methodCodeList = 'GetCodeListValue&datasetid=LF&concept=TSEST&format=json';
+			// item 14 - unemployment rate
+			// age 1599 - all ages
+			// tsest 10 - original
+			// tsest 20 - seasonally adjusted
+			// asgc 0 - Australia
+			// sex 3 - People
+			var methodData = 'GetGenericData&datasetid=LF&and=SEX_ABS.3,ASGC_2010.0,ITEM.14,AGE.1599&or=TSEST.10.20&format=json';
+
+			google.load("visualization", "1", {
+				packages: ["corechart"]
+			});
+			//google.setOnLoadCallback(drawChart);
+			function drawChart(lfData) {
+
+				var data = google.visualization.arrayToDataTable(lfData);
+
+				var options = {
+					title: 'Unemployment Rate(%)',
+					series: {
+						0: {
+							targetAxisIndex: 0,
+							visibleInLegend: false,
+							pointSize: 0,
+							lineWidth: 0
+						},
+						1: {
+							targetAxisIndex: 1
+						},
+						2: {
+							targetAxisIndex: 1
+						}
+					},
+					vAxes: {
+						0: {
+							textPosition: 'none'
+						},
+						1: {}
+					},
+					vAxis: {
+						//title: '000s',
+						minValue: 0,
+						gridlines: {
+							//color: 'transparent'
+						}
+					}
+				};
+				var chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+				chart.draw(data, options);
+			}
+			function getCodeDescription(codes, code) {
+				var s = '';
+				$.each(codes, function() {
+					if (this.code == code) {
+						s = this.description;
+						return false;
+					}
+				});
+				return s;
+			}
+			function getTimeSeriesEstimateCategory() {
+				var url = serviceUrl + methodCodeList + "&callback=?";
+				$.getJSON(url, function(data) {
+					codes = data.codes;
+				}).fail(function(jqxhr, textStatus, error) {
+					alert(textStatus + ' error ' + error);
+				});
+			}
+			$(document).ready(function() {
+				getTimeSeriesEstimateCategory();
+				$('#getData').click(function() {
+					var url = serviceUrl + methodData + "&callback=?";
+					var chartData = [];
+
+					chartData.push(['Year', 'FakeYAxis', 'Series1', 'Series2']);
+					//['Jun-2012', 0, 11520.3, 11508.1],
+					//['Jul-2012', null, 11524.2, 11525.5],
+					$.getJSON(url, {start: $('#start').val(), end: $('#end').val()}, function(data) {
+						$.each(data.series, function(iSeries, ser) {
+							$.each(ser.concepts, function() {
+								if (this.name == 'TSEST') {
+									chartData[0][2 + iSeries] = getCodeDescription(codes, this.Value);
+									return false;
+								}
+							});
+							$.each(ser.observations, function(io, obs) {
+								if (iSeries == 0) {
+									// populate the data rows on series 0
+									chartData.push([obs.Time, 0, 0, 0]);
+								}
+								chartData[1 + io][2 + iSeries] = Number(obs.Value);
+							});
+						});
+						drawChart(chartData);
+					}).fail(function(jqxhr, textStatus, error) {
+						alert(textStatus + ' error ' + error);
+					});
+				});
+			});
+		</script>
+	</head>
+	<body>
+		<button id='getData'>Get Data</button> <label for='start'>Start date</label><input id='start' value='1990'> <label for='end'>End date</label><input id='end' value='2015'>
+		<div id="chart_div" style="width: 90%; height: 500px;"></div>
+	</body>
+</html>

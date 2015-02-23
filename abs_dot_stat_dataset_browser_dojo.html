@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html >
+<head>
+	<link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/dojo/1.9.1/dijit/themes/claro/claro.css">
+	<script>dojoConfig = {parseOnLoad: true}</script>
+	<script src="http://ajax.googleapis.com/ajax/libs/dojo/1.10.0/dojo/dojo.js"></script>
+<script>
+dojo.require("dojo.io.script");
+dojo.require("dojox.NodeList.delegate");
+dojo.ready(function(){
+	function showConcepts(dataset){
+		require(["dojo/dom-attr"], function(domAttr){
+			var id = domAttr.get(dataset, "data-datasetid"); // get
+			if( dojo.query("ul",dataset).length > 0 ){
+				var ul = dojo.query("ul",dataset)[0];
+				var s = dojo.style(ul,'display' );
+				dojo.style(ul,'display',s == 'none'?'block':'none');
+				return;
+			}
+			dojo.io.script.get({
+				url: "http://stat.abs.gov.au/itt/query.jsp",
+				content : {method:'GetDatasetConcepts',datasetid:id},
+				callbackParamName: "callback",
+				load: function(res){
+					var ul = dojo.create("ul",{},dataset);
+					dojo.forEach(res.concepts,function(concept){
+						dojo.create("li",{innerHTML:concept,class:'concept', "data-datasetid":id},ul);
+					});
+				},
+				error: function(err){
+					// Reject on error
+					alert(err);
+				}
+			});
+		});
+	}
+	
+	function showCodes(concept){
+		require(["dojo/dom-attr"], function(domAttr){
+			var id = domAttr.get(concept, "data-datasetid"); // get
+			if( dojo.query("ul",concept).length > 0 ){
+				var ul = dojo.query("ul",concept)[0];
+				var s = dojo.style(ul,'display' );
+				dojo.style(ul,'display',s == 'none'?'block':'none');
+				return;
+			}
+			var conceptName = concept.innerHTML;
+			
+			var waiting = dojo.create("h4",{innerHTML:'Reading codes...',class:'waiting'},concept);
+			dojo.io.script.get({
+				url: "http://stat.abs.gov.au/itt/query.jsp",
+				content : {method:'GetCodeListValue',datasetid:id,'format':'json','concept':conceptName},
+				callbackParamName: "callback",
+				load: function(res){
+					dojo.destroy(waiting);
+					var ul = dojo.create("ul",{},concept);
+					dojo.forEach(res.codes,function(code,index){
+						if( index < res.codes.length-1 ){
+							dojo.create("li",{innerHTML:code.code + ' - ' + code.description,class:'code'},ul);
+						}
+					});
+				},
+				error: function(err){
+					// Reject on error
+					alert(err);
+				}
+			});
+		});
+	}
+	
+    var def = new dojo.Deferred();
+    var dlist = dojo.byId("datasetList");
+	dojo.query("body").delegate( "li.dataset","click", function(evt){
+		if( evt.target==this){
+			showConcepts(evt.target);
+		}
+	});
+	dojo.query("body").delegate( "li.concept","click", function(evt){
+		showCodes(evt.target);
+	});
+
+	def.then(function(res){
+		// This will be called when the deferred
+		// is resolved
+		dojo.forEach(res.datasets, function(dataset){
+			dojo.create("li", {
+				"data-datasetid": dataset.id,
+				"class" : "dataset",
+				innerHTML: dataset.description
+			}, dlist);
+		});
+	},function(err){
+		// This will be called when the deferred
+		// is rejected
+		dojo.create("li", {
+			innerHTML: "Error: " + err
+		}, dlist);
+	});
+	 
+	dojo.io.script.get({
+		url: "http://stat.abs.gov.au/itt/query.jsp",
+		content : {method:'GetDatasetList'},
+		callbackParamName: "callback",
+		load: function(res){
+			// Resolve when content is received
+			def.resolve(res);
+		},
+		error: function(err){
+			// Reject on error
+			def.reject(err);
+		}
+	});
+});
+</script>
+<style>
+	.dataset{
+		cursor:pointer;
+	}
+</style>
+</head>
+<body class="claro">
+    <ul id="datasetList" style="padding: 10px;"></ul>
+</body>
+</html>

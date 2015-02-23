@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en-us">
+    <head>
+        <title>Show top and bottom 10 of LGA NRP measures</title>
+        <script src="https://www.google.com/jsapi"></script>
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+        <script>
+            var serviceUrl = 'http://stat.abs.gov.au/itt/query.jsp?method=';
+            var methodCodeList = 'GetCodeListValue&format=json&callback=?';
+            var methodData = 'GetGenericData&callback=?';
+            var regionConcept = 'REGION';
+            var dataConcept = 'MEASURE';
+            var datasetid = 'ABS_NRP9_LGA';
+            var measureCodes = [];
+            var states = ['Australia', 'NSW', 'Vic', 'QLD', 'SA', 'WA', 'TAS', 'NT', 'ACT'];
+            function waiting(place) {
+                $(place).html('<p>Waiting for result</p><img src="ajax-loader.gif"/>');
+
+            }
+            function log(text) {
+                text = text.replace(/&/g, "&amp;").replace(/>/g, "&gt;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+                $('#log').append("<li>" + text + "</li>");
+            }
+            // http://stackoverflow.com/questions/610406/javascript-equivalent-to-printf-string-format
+            // example: "{0} is dead, but {1} is alive! {0} {2}".format("ASP", "ASP.NET")
+            // first, checks if it isn't implemented yet
+            if (!String.prototype.format) {
+                String.prototype.format = function() {
+                    var args = arguments;
+                    return this.replace(/{(\d+)}/g, function(match, number) {
+                        return typeof args[number] !== 'undefined'
+                                ? args[number]
+                                : match
+                                ;
+                    });
+                };
+            }
+
+            if (!String.prototype.format2) {
+                String.prototype.format2 = function() {
+                    var str = this.toString();
+                    if (!arguments.length)
+                        return str;
+                    var args = typeof arguments[0],
+                            args = (("string" == args || "number" == args) ? arguments : arguments[0]);
+                    for (arg in args)
+                        str = str.replace(RegExp("\\{" + arg + "\\}", "gi"), args[arg]);
+                    return str;
+                };
+            }
+            function getCategories(datasetid, concept) {
+                var url = serviceUrl + methodCodeList;
+
+                $.getJSON(url, {datasetid: datasetid, concept: concept}, function(data) {
+                    if (data.exception) {
+                        log('ITT error ' + data.exception);
+                    } else {
+                        var codes = data.codes;
+                        measureCodes = codes;
+                        $.each(codes, function() {
+                            // only include like POP99 and not like 100EC or ENV
+                            if (isNaN(this.code[0]) && !isNaN(this.code[this.code.length - 1])) {
+                                $('#items').append('<option value="' + this.code + '" >' + this.description + '</option>');
+                            }
+                        });
+                        $('#items option').sort(function(a, b) {
+                            return (a.innerHTML > b.innerHTML) ? 1 : -1;
+                        }).appendTo('#items');
+                    }
+                }).fail(function(jqxhr, textStatus, error) {
+                    log(textStatus + ' error ' + error);
+                });
+            }
+            function getConcepts() {
+                var datasetid = $('#datasets').val();
+                $('#datasetid').val(datasetid);
+                var url = serviceUrl + "GetDatasetConcepts&callback=?";
+                $.getJSON(url, {datasetid: datasetid}, function(data) {
+                    if (data.exception) {
+                        log('ITT error ' + data.exception);
+                    } else {
+                        $('#concepts').html('');
+                        $.each(data.concepts, function(index) {
+                            var selected = index == 0 ? "selected" : "";
+                            $('#concepts').append('<option value="' + this + '" ' + selected + '>' + this + '</option>');
+                        });
+                        getCategory($('#datasets').val(), $('#concepts').val());
+                    }
+                }).fail(function(jqxhr, textStatus, error) {
+                    log(textStatus + ' error ' + error);
+                });
+
+            }
+            function getCodeDescription(codes, code) {
+                var s = '';
+                $.each(codes, function() {
+                    if (this.code == code) {
+                        s = this.description;
+                        return false;
+                    }
+                });
+                return s;
+            }
+
+            function topBottom(param, count) {
+                $('#{0}Result'.format(param)).html('<img src="ajax-loader.gif"/>');
+                var url = serviceUrl + methodData + '&{0}={1}'.format(param, count);
+                var measure = $('#items').val();
+                $('#{0}Measure'.format(param)).html(getCodeDescription(measureCodes, measure));
+                var and = dataConcept + '.' + measure;
+                var or = regionConcept;
+                waiting('#{0}Result'.format(param));
+                $.getJSON(url, {datasetid: datasetid, REGIONTYPE: 'LGA2012', series: 'latest', gt: 0, and: and, or: or, nf: 1, format: 'htable'}, function(data) {
+                    if (data.exception) {
+                        log( getCodeDescription(measureCodes, measure) + ' ITT error ' + data.exception);
+                    } else {
+                        $('#{0}Result'.format(param)).html(data.text);
+                        // add the state to the table
+                        $('#{0}Result table'.format(param)).find('tr').each(function(index) {
+                            if (index == 0) {
+                                $(this).find('th').eq(0).after('<th>State</th>');
+                            } else {
+                                var td = $(this).find('td').eq(0);
+                                var stName = states[Number(td.text()[0])];
+                                td.after('<td>' + stName + '</td>');
+                            }
+                        });
+                    }
+                }).fail(function(jqxhr, textStatus, error) {
+                    log(textStatus + ' error ' + error);
+                }).done(function() {
+                    $('.topBottom td:first-child').each(function() {
+                        var regionCode = $(this).text();
+                        var page = 'http://stat.abs.gov.au/itt/r.jsp?RegionSummary&region={0}&dataset=ABS_NRP9_LGA&geoconcept=REGION&maplayerid=LGA2012&measure=MEASURE&datasetASGS=ABS_NRP9_ASGS&datasetLGA=ABS_NRP9_LGA&regionLGA=REGION&regionASGS=REGION'.format(regionCode);
+                        $(this).html('<a href="{0}" target="_blank">{1}</a>'.format(page, regionCode));
+                    });
+
+                });
+
+            }
+            $(document).ready(function() {
+                getCategories(datasetid, dataConcept);
+                $('#show').click(function() {
+                    topBottom('top', 10);
+                    topBottom('bottom', 10);
+                });
+            });
+        </script>
+        <style>
+            table  { background-color:#eee;border-collapse:collapse; }
+            th { background-color:#000;color:white; }
+            td { padding:5px;border:1px solid #000; }
+            #restful {
+                width: 50em;
+            }
+            .boxResult {
+                width: 45%;
+                float: left;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Show the top and bottom 10 LGA regions for a measure from the ABS National Regional Profile </h1>
+        <h3>Available measures</h3>
+        <select id='items'></select>
+        <button id='show'>Show</button>
+        <h3 id='topMeasure'></h3>
+        <div class='boxResult'>
+            <h3>Top 10</h3>
+            <div class='topBottom' id='topResult'></div>
+        </div>
+        <div class='boxResult'>
+            <h3>Bottom 10</h3>
+            <div class='topBottom' id='bottomResult'></div>
+        </div>
+        <h3 style='clear: both'>Event log</h3>
+        <ul id='log'></ul>
+    </body>
+</html>

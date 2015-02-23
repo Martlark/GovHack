@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en-us">
+    <head>
+        <title>Available datasets on ABS .Stat</title>
+        <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.js"></script>
+        <script>
+            var serviceUrl = 'http://stat.abs.gov.au/itt/query.jsp?method=';
+            var methodCodeList = 'GetCodeListValue&format=json';
+            var methodData = 'GetGenericData&format=json';
+            function log(text) {
+                text = text.replace(/&/g, "&amp;").replace(/>/g, "&gt;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+                $('#log').append("<li>" + text+"</li>");
+            }
+            function getCategory(datasetid, concept) {
+                var url = serviceUrl + methodCodeList + "&callback=?";
+                var s = '';
+                log(url);
+                $.getJSON(url, {datasetid: datasetid, concept: concept}, function(data) {
+                    if (data.exception) {
+                        log(data.exception);
+                    } else {
+                        var codes = data.codes;
+                        $('#items').html('<tr><th>Code</th><th>Description</th><th>Parent Code</th><th>Parent Description</th></th>');
+                        $.each(codes, function() {
+                            $('#items').append('<tr><td>' + this.code + '</td><td>' + this.description + '</td><td>' + this.parentCode + '</td><td>' + this.parentDescription + '</td></tr>');
+                        });
+                        var and = concept + '.';
+                        $('#restful').val('http://stat.abs.gov.au/itt/query.jsp?method=GetGenericData&datasetid=' + datasetid + '&and=' + and);
+                        $('#concept').html(concept);
+                    }
+                }).fail(function(jqxhr, textStatus, error) {
+                    log(textStatus + ' error ' + error);
+                });
+            }
+            function getDatasets() {
+                var url = serviceUrl + "GetDatasetList&callback=?";
+                log(url);
+                $.getJSON(url, function(data) {
+                    if (data.exception) {
+                        log(data.exception);
+                    } else {
+                        $.each(data.datasets, function(index) {
+                            var selected = index == 0 ? "selected" : "";
+                            $('#datasets').append('<option value="' + this.id + '" ' + selected + ' >' + this.description + '</option>');
+                        });
+                        getConcepts();
+                    }
+                }).fail(function(jqxhr, textStatus, error) {
+                    log(textStatus + ' error ' + error);
+                });
+
+            }
+            function getConcepts() {
+                var datasetid = $('#datasets').val();
+                $('#datasetid').val(datasetid);
+                var url = serviceUrl + "GetDatasetConcepts&callback=?";
+                log(url);
+                $.getJSON(url, {datasetid: datasetid}, function(data) {
+                    $('#concepts').html('');
+                    if (data.exception) {
+                        log(data.exception);
+                    } else {
+                        $.each(data.concepts, function(index) {
+                            var selected = index == 0 ? "selected" : "";
+                            $('#concepts').append('<option value="' + this + '" ' + selected + '>' + this + '</option>');
+                        });
+                        getCategory($('#datasets').val(), $('#concepts').val());
+                    }
+                }).fail(function(jqxhr, textStatus, error) {
+                    log(textStatus + ' error ' + error);
+                });
+
+            }
+            $(document).ready(function() {
+                getDatasets();
+                $('#datasets').change(function() {
+                    getConcepts();
+                });
+                $('#concepts').change(function() {
+                    getCategory($('#datasets').val(), $('#concepts').val());
+                });
+            });
+        </script>
+        <style>
+            table  { background-color:#eee;border-collapse:collapse; }
+            th { background-color:#000;color:white; }
+            td { padding:5px;border:1px solid #000; }
+            #restful {
+                width: 50em;
+            }
+        </style>
+    </head>
+    <body>
+        <label for='datasets'>Datasets</label>
+        <select id='datasets'></select><br>
+        <label for='datasetid'>id</label><input id='datasetid'/><br>
+        <label for='concepts'>Concepts</label>
+        <select id='concepts'></select>
+        <label for='restful'>Restful query</label><input id='restful'/>
+        <h3>Category items for <span id='concept'></span></h3>
+        <table id='items'></table>
+        <h3>Event log</h3>
+        <ul id='log'></ul>
+    </body>
+</html>

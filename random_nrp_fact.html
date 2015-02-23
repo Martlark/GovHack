@@ -2,24 +2,24 @@
 <html lang="en-us">
     <head>
         <title>Did you Know?</title>
+        <script src="https://www.google.com/jsapi"></script>
         <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+        <script src="https://www.google.com/jsapi"></script>
 
         <script>
+            google.load('search', '1');
+            var imageSearch;
             var serviceUrl = 'http://stat.abs.gov.au/itt/query.jsp?method=';
             var methodCodeList = 'GetCodeListValue&format=json&callback=?';
             var methodData = 'GetGenericData&callback=?';
-            var measureCodes = [];
             var regionConcept = 'REGION';
             var dataConcept = 'MEASURE';
             var datasetids = [{id: 'ABS_NRP9_LGA', regionType: 'LGA2012'}, {id: 'ABS_NRP9_ASGS', regionType: 'SA4'}];
             var dataset = {id: '', regionType: ''};
             var states = ['Australia', 'New South Wales', 'Victora', 'Queensland', 'South Australia', 'Western Australia', 'Tasmania', 'the Northern Territory', 'the ACT'];
-            /**
-             *
-             * @param {String} place to put the waiting message
-             */
+
             function waiting(place) {
-                $(place).html('<div class="waiting"><p>Waiting for ABS statistics</p><img src="ajax-loader.gif"/></div>');
+                $(place).html('<p>Waiting for result</p><img src="ajax-loader.gif"/>');
             }
             /**
              * picks a random item from a list of items
@@ -48,68 +48,45 @@
                     });
                 };
             }
-            /** choose a random measure from the list of measures and set the document attributes
-             *
-             * @returns {Object} the measure chosen
-             */
-            function chooseMeasure() {
-                var measure = randomChoice(measureCodes);
-                $('#item').html(measure.description);
-                $('#itemCode').val(measure.code);
-                $('#itemCodeParent').val(measure.parentCode);
-                getAllRegions();
-                return measure;
-            }
-
             function getCategories(concept) {
                 $('#repeat').hide();
-                $('.region').hide();
-                waiting('#desc');
-
                 dataset = randomChoice(datasetids);
-                if (measureCodes.length <= 0) {
-                            var url = serviceUrl + methodCodeList;
-                            log(url);
-                    $.getJSON(url, {datasetid: dataset.id, concept: concept}, function(data) {
-                        if (data.exception) {
-                            log('getCategories ITT error ' + data.exception);
-                            getCategories(concept);
-                        } else {
-                            $.each(data.codes, function() {
-                                if (isNaN(this.code[0])) {
-                                    measureCodes.push({code: this.code, description: this.description, parentCode: getCode(data.codes, this.parentCode).parentCode});
-                                }
-                            });
-                            chooseMeasure();
-                        }
-                    }).fail(function(jqxhr, textStatus, error) {
-                        log(textStatus + ' error ' + error);
-                        getCategories(concept);
-                    });
-                } else {
-                    chooseMeasure();
-                }
+                var url = serviceUrl + methodCodeList;
+                log(url);
+                waiting('#desc');
+                $.getJSON(url, {datasetid: dataset.id, concept: concept}, function(data) {
+                    if (data.exception) {
+                        log('getCategories ITT error ' + data.exception);
+                    } else {
+                        var measureCodes = data.codes;
+                        var measure = randomChoice(measureCodes);
+                        $('#item').html(measure.description);
+                        $('#itemCode').val(measure.code);
+                        getAllRegions();
+                    }
+                }).fail(function(jqxhr, textStatus, error) {
+                    log(textStatus + ' error ' + error);
+                });
             }
-            function getCode(codes, code) {
-                var c = {};
+            function getCodeDescription(codes, code) {
+                var s = '';
                 $.each(codes, function() {
                     if (this.code == code) {
-                        c = this;
+                        s = this.description;
                         return false;
                     }
                 });
-                return c;
+                return s;
             }
-            /**
-             * get the results table for the measure which includes all regions
-             */
+
             function getAllRegions() {
                 $('#result').html('<img src="ajax-loader.gif"/>');
                 var url = serviceUrl + methodData;
                 var measure = $('#itemCode').val();
                 var and = dataConcept + '.' + measure + ',REGIONTYPE.' + dataset.regionType;
                 var or = regionConcept;
-                log(url + and + or);
+
+                log(url+and+or);
                 waiting($('#result'));
                 $.getJSON(url, {datasetid: dataset.id, series: 'latest', gt: 0, and: and, or: or, format: 'htable'}, function(data) {
                     if (data.exception) {
@@ -129,78 +106,50 @@
                     }
                 }).fail(function(jqxhr, textStatus, error) {
                     log(textStatus + ' error ' + error);
-                    getCategories(dataConcept);
                 }).done(function() {
                     if (!makeDescription()) {
-                        getCategories(dataConcept);
+                        getCategories();
                     }
                 });
             }
-            /**
-             * get the lastest value for the measure and region
 
-             * @param {string} place - where to put the measure
-             * @param {type} measure
-             * @param {type} regionCode
-             * @returns {undefined}			 */
-            function getLatestMeasureValue(place, measure, regionCode)
-            {
-                var url = serviceUrl + methodData;
-                var and = '{0}.{1},{2}.{3}'.format(dataConcept, measure, regionConcept, regionCode);
-                log(url + and);
-                $.getJSON(url, {datasetid: dataset.id, and: and, format: 'latest'}, function(data) {
-                    if (data.exception) {
-                        log(measure + ' ITT error ' + data.exception);
-                    } else {
-                        $(place).html(data.text);
-                    }
-                });
-            }
-            /**
-             * fill out the desc div with a description of the measure table results
-             * @returns {boolean} true if valid description
-             */
             function makeDescription() {
-                var items = {};
                 var measure = $('#item').text();
-                items['measureCategory'] = '{0} ({1})'.format(measure.slice(0, measure.indexOf('- ')).trim(), dataset.regionType);
-                items['measureType'] = measure.slice(measure.lastIndexOf('(') + 1, measure.lastIndexOf(')'));
-                items['measure'] = measure.slice(measure.indexOf('- ') + 2, measure.indexOf('(')).trim();
-                items['measureDesc'] = 'value';
-                switch (items['measureType']) {
+                var measureCategory = '{0} ({1})'.format(measure.slice(0, measure.indexOf('- ')).trim(), dataset.regionType);
+                var measureType = measure.slice(measure.lastIndexOf('(') + 1, measure.lastIndexOf(')'));
+                measure = measure.slice(measure.indexOf('- ') + 2, measure.indexOf('(')).trim();
+                var measureDesc = 'value';
+                switch (measureType) {
                     case '%':
-                        items['measureDesc'] = 'percent';
+                        measureDesc = 'percent';
                         break;
                     case 'no.':
-                        items['measureDesc'] = '';
+                        measureDesc = '';
                         break;
                     case "$'000":
-                        items['measureDesc'] = 'thousand dollars';
+                        measureDesc = 'thousand dollars';
                         break;
                     case '$':
-                        items['measureDesc'] = 'dollars';
+                        measureDesc = 'dollars';
                         break;
                     case '$m':
-                        items['measureDesc'] = 'million dollars';
+                        measureDesc = 'million dollars';
                         break;
                     case 'ha':
-                        items['measureDesc'] = 'hectares';
+                        measureDesc = 'hectares';
                         break;
                     case 'per 1000':
-                        items['measureDesc'] = 'per one thousand';
+                        measureDesc = 'per one thousand';
                         break;
                     case 'years':
-                        items['measureDesc'] = 'years';
+                        measureDesc = 'years';
                         break;
+
                 }
-                var starts = ['{measure}:', 'Facts for {measure}:', 'ABS statistics for {measure} show:', 'Interesting statistics for {measure} are:'];
-                $('header p').html(items['measureCategory']);
-                var s = randomChoice(starts) + '<br>';
-                s += randomChoice(
-                        ['The highest value region was {topName} in {topState} with {topValue} {measureDesc} the lowest was {bottomName} in {bottomState} with {bottomValue} {measureDesc}. ',
-                            '{topName} in {topState} with {topValue} {measureDesc} is highest and {bottomName} in {bottomState} with {bottomValue} {measureDesc} was least. ',
-                            '<ul><li>Highest {topName} - {topState}</li><li>{topValue} {measureType}</li><li>Lowest {bottomName} - {bottomState}</li><li>{bottomValue} {measureType}</li></ul>']
-                        );
+                var starts = ['Did you know that for {measure} ', 'ABS statistics for {measure} show ', 'Interesting statistics for {measure} is that'];
+                var s = '<h2>{measureCategory}</h2>' + randomChoice(starts);
+                s += randomChoice([' the highest value region was {topName} in {topState} with {topValue} {measureDesc} and the lowest value region was {bottomName} in {bottomState} with {bottomValue} {measureDesc}. ',
+                    '<ul><li>Highest {topName} - {topState}</li><li>{topValue} {measureType}</li><li>Lowest {bottomName} - {bottomState}</li><li>{bottomValue} {measureType}</li></ul>']);
                 s += randomChoice(['The average value of {count} regions was {average} {measureDesc}.', 'There were {count} regions with an average of {average} {measureDesc}. ']);
                 function nameReplace(s, name, value) {
                     var rn = '\{' + name + '\}';
@@ -214,168 +163,115 @@
                 }
                 var count = 0, total = 0.0;
                 var highValue = -1, lowValue = Infinity;
-                //var topState, topName, bottomState, bottomName, topCode, bottomCode;
+                var topState, topName, bottomState, bottomName;
                 $('#result tbody tr').each(function() {
                     var tds = $('td', this);
+
                     if (!isNaN($(tds[3]).text())) {
                         count++;
                         var v = Number($(tds[3]).text());
                         total += v;
                         if (v > highValue) {
                             highValue = v;
-                            items['topValue'] = v;
-                            items['topCode'] = $(tds[0]).text();
-                            items['topState'] = $(tds[1]).text();
-                            items['topName'] = $(tds[2]).text();
+                            topState = $(tds[1]).text();
+                            topName = $(tds[2]).text();
                         }
                         if (v < lowValue) {
                             lowValue = v;
-                            items['bottomValue'] = v;
-                            items['bottomCode'] = $(tds[0]).text();
-                            items['bottomState'] = $(tds[1]).text();
-                            items['bottomName'] = $(tds[2]).text();
+                            bottomState = $(tds[1]).text();
+                            bottomName = $(tds[2]).text();
                         }
                     }
                 });
                 if (count < 1) {
                     return false;
                 }
-                regionDescription('top', items['topName'], items['topCode']);
-                regionDescription('bottom', items['bottomName'], items['bottomCode']);
-                items['average'] = (count > 0 ? total / count : 0).toFixed(2);
-                items['count'] = count;
-                $.each(items, function(k, v) {
-                    s = nameReplace(s, k, v);
-                });
+                var average = count > 0 ? total / count : 0;
+                s = nameReplace(s, 'topState', topState);
+                s = nameReplace(s, 'topName', topName);
+                s = nameReplace(s, 'topValue', highValue);
+                s = nameReplace(s, 'bottomState', bottomState);
+                s = nameReplace(s, 'bottomName', bottomName);
+                s = nameReplace(s, 'bottomValue', lowValue);
+                s = nameReplace(s, 'measureDesc', measureDesc);
+                s = nameReplace(s, 'measureType', measureType);
+                s = nameReplace(s, 'measureCategory', measureCategory);
+                s = nameReplace(s, 'measure', measure);
+                s = nameReplace(s, 'average', average.toFixed(2));
+                s = nameReplace(s, 'count', count);
                 $('#desc').html(s);
-                $('#desc').fadeIn();
-                $('#repeat').fadeIn();
-                $('.region').fadeIn('slow');
-                $('.waiting').fadeOut();
-                addBackground();
+                $('#repeat').show();
+
+
+                // Find me a beautiful image.
+                imageSearch.execute(measure);
                 return true;
             }
-            function addBackground() {
-                var img = 'url(img/{0}.jpg)'.format($('#itemCodeParent').val());
-                // get top parent
-                $('header').css({"background-image": img, "background-repeat": "no-repeat"});
+
+            function searchComplete() {
+
+                // Check that we got results
+                if (imageSearch.results && imageSearch.results.length > 0) {
+
+                    // Loop through our results, printing them to the page.
+                    var results = imageSearch.results;
+                    for (var i = 0; i < results.length; i++) {
+                        // For each result write it's title and image to the screen
+                        var result = results[i];
+
+                        $('#googleImage').html('<img src="{0}"></img>'.format(result.url));
+                        break;
+                    }
+                }
             }
-            /**
-             * format a div of information about the given region
-             * @param {type} topBottom
-             * @param {type} regionName
-             * @param {type} regionCode
-             */
-            function regionDescription(topBottom, regionName, regionCode) {
-                var $div = $('#{0}Region'.format(topBottom));
-                $div.html('<h2 data-regionCode="{0}">{1}</h2>'.format(regionCode, regionName));
-                $div.append('<ul></ul>'.format(regionCode));
-                $.each([{code: 'ENV34', desc: 'Area', pre: ' ', post: ' (ha)'},
-                    {code: 'POP68', desc: 'Population', pre: ' ', post: ''},
-                    {code: 'EC24', desc: 'Average salary', pre: ' $', post: ''},
-                    {code: 'EC40', desc: 'Unemployment', pre: ' ', post: '%'}], function(i, measure) {
-                    $('ul', $div).append('<li>{0}{1}<span></span>{2}</li>'.format(measure.desc, measure.pre, measure.post));
-                    getLatestMeasureValue('#{0}Region ul li:nth-child({1}) span'.format(topBottom, i + 1), measure.code, regionCode);
-                });
-            }
-            function regionClick(region) {
-                var regionCode = $('h2', region).attr('data-regionCode');
-                var page = 'http://stat.abs.gov.au/itt/r.jsp?RegionSummary&region={0}&dataset={1}&geoconcept=REGION&measure=MEASURE&datasetASGS=ABS_NRP9_ASGS&datasetLGA=ABS_NRP9_LGA&regionLGA=REGION&regionASGS=REGION'.format(regionCode, dataset.id);
-                window.open(page, "_blank");
-            }
+
+
             $(document).ready(function() {
-                waiting('#desc');
+                initGoogleImageSearch();
                 getCategories(dataConcept);
                 $('#repeat').click(function() {
                     dataset = randomChoice(datasetids);
                     getCategories(dataConcept);
                 });
-                $('.region').click(function() {
-                    regionClick(this);
-                });
-                $('button:contains("Show Log")').click(function() {
-                    $('#log').toggle();
-                });
+            });
+            function initGoogleImageSearch() {
+                // Create an Image Search instance.
+                imageSearch = new google.search.ImageSearch();
+
+                // Set searchComplete as the callback function when a search is 
+                // complete.  The imageSearch object will have results in it.
+                imageSearch.setSearchCompleteCallback(this, searchComplete, null);
+
+                // Include the required Google branding
+                google.search.Search.getBranding('branding');
             }
-            );
         </script>
         <style>
-            body {
-                background-color: #ABEFB6;
+            table  { background-color:#eee;border-collapse:collapse; }
+            th { background-color:#000;color:white; }
+            td { padding:5px;border:1px solid #000; }
+            #repeat {
+                height: 50px;
+                width: 20em;
             }
-            header {
-                height: 6em;
-            }
-            header p {
-                position: relative;
-                top: 2em;
-                font-size: 20pt;
-                color: yellow;
-                text-shadow: 0 1px white,0 -1px white;
-                text-align: center;
-            }
-            .region {
-                background-color: #cccccc;
-                border-radius: 5px;
-                padding: 5px 15px 15px 15px;
-                margin-bottom: 15px;
-                margin-right: 2em;
-                cursor: pointer;
-                margin-left: 2em;
-            }
-            .region ul {
-                padding-left: 1em;
-            }
-            .region li {
-                list-style-type: square;
-            }
-            .region h2{
-                padding-top: 5px;
-            }
-            .waiting {
-                font-size: 30pt;
-            }
-            @media only screen
-            and (min-device-width :500px)
-            {
-                .region {
-                    width: 40%;
-                    float: left;
-                }
-            }
-            @media only screen
-            and (max-device-width : 499px) {
-
-                #repeat {
-                    height: 100px;
-                    width: 100%;
-                    font-size: 60pt;
-                }
-                .region {
-                    width: 90%;
-                    clear: both;
-                }
+            #googleImage img {
+                width: 80%;
             }
         </style>
     </head>
     <body>
-        <header>
-            <p>ABS Random Fact Generator</p>
-        </header>
+        <h1>Did you know?</h1>
         <div id='desc'></div>
         <button id='repeat'>Get another fact</button>
+        <div id="branding"></div><br />
+        <div id="googleImage"></div>
         <div style='display:none'>
             <h3 id='item'></h3>
             <input id='itemCode' value=''/>
-            <input id='itemCodeParent' value=''/>
+            <h3 style='clear: both'>Event log</h3>
             <div id='result'></div>
-
-            <button style='clear:both'>Show Log</button>
-            <ul id='log' style='display:none'></ul>
         </div>
-        <hr>
+            <ul id='log'></ul>
 
-        <div class='region' id='topRegion' title='Click to open ABS region summary'></div>
-        <div class='region' id='bottomRegion' title='Click to open ABS region summary'></div>
     </body>
 </html>
