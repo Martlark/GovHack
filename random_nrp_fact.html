@@ -27,9 +27,10 @@
             function randomChoice(items) {
                 return items[Math.floor(Math.random() * items.length)];
             }
-		/**
-		  log to the list at the bottom of the screen
-		  */
+            /**
+             log to the list at the bottom of the screen
+             @param text - the text to output to the log
+             */
             function log(text) {
                 text = text.replace(/&/g, "&amp;").replace(/>/g, "&gt;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
                 $('#log').append("<li>" + text + "</li>");
@@ -38,9 +39,9 @@
             // example: "{0} is dead, but {1} is alive! {0} {2}".format("ASP", "ASP.NET")
             // first, checks if it isn't implemented yet
             if (!String.prototype.format) {
-                String.prototype.format = function() {
+                String.prototype.format = function () {
                     var args = arguments;
-                    return this.replace(/{(\d+)}/g, function(match, number) {
+                    return this.replace(/{(\d+)}/g, function (match, number) {
                         return typeof args[number] !== 'undefined'
                                 ? args[number]
                                 : match
@@ -48,14 +49,20 @@
                     });
                 };
             }
+            /**
+             * retrieve all the categories for the concept
+             * @param {string} concept
+             * @returns {none}
+             */
             function getCategories(concept) {
                 $('#repeat').hide();
                 dataset = randomChoice(datasetids);
                 var url = serviceUrl + methodCodeList;
                 log(url);
                 waiting('#desc');
-                $.getJSON(url, {datasetid: dataset.id, concept: concept}, function(data) {
+                $.getJSON(url, {datasetid: dataset.id, concept: concept}, function (data) {
                     if (data.exception) {
+                        $('#repeat').show();
                         log('getCategories ITT error ' + data.exception);
                     } else {
                         var measureCodes = data.codes;
@@ -64,21 +71,21 @@
                         $('#itemCode').val(measure.code);
                         getAllRegions();
                     }
-                }).fail(function(jqxhr, textStatus, error) {
-					$('#repeat').show();
+                }).fail(function (jqxhr, textStatus, error) {
+                    $('#repeat').show();
                     log(textStatus + ' error ' + error);
                 });
             }
-			/**
-			return the string of the given code in the given code list
-			@param codes - list of codes
-			@param code - the code to look up
-			@returns {string} - the description
-			*/
+            /**
+             return the string of the given code in the given code list
+             @param codes - list of codes
+             @param code - the code to look up
+             @returns {string} - the description
+             */
             function getCodeDescription(codes, code) {
                 var s = '';
-                $.each(codes, function() {
-                    if (this.code == code) {
+                $.each(codes, function () {
+                    if (this.code === code) {
                         s = this.description;
                         return false;
                     }
@@ -93,15 +100,15 @@
                 var and = dataConcept + '.' + measure + ',REGIONTYPE.' + dataset.regionType;
                 var or = regionConcept;
 
-                log(url+and+or);
+                log(url + and + or);
                 waiting($('#result'));
-                $.getJSON(url, {datasetid: dataset.id, series: 'latest', gt: 0, and: and, or: or, format: 'htable'}, function(data) {
+                $.getJSON(url, {datasetid: dataset.id, series: 'latest', gt: 0, and: and, or: or, format: 'htable'}, function (data) {
                     if (data.exception) {
                         log(measure + ' ITT error ' + data.exception);
                     } else {
                         $($('#result')).html(data.text);
                         // add the state to the table
-                        $('#result table').find('tr').each(function(index) {
+                        $('#result table').find('tr').each(function (index) {
                             if (index == 0) {
                                 $(this).find('th').eq(0).after('<th>State</th>');
                             } else {
@@ -111,19 +118,19 @@
                             }
                         });
                     }
-                }).fail(function(jqxhr, textStatus, error) {
+                }).fail(function (jqxhr, textStatus, error) {
                     log(textStatus + ' error ' + error);
-					$('#repeat').show();
-                }).done(function() {
+                    $('#repeat').show();
+                }).done(function () {
                     if (!makeDescription()) {
                         getCategories();
                     }
                 });
             }
 
-			/**
-				create a human readable description from the return result
-			*/
+            /**
+             create a human readable description from the return result
+             */
             function makeDescription() {
                 var measure = $('#item').text();
                 var measureCategory = '{0} ({1})'.format(measure.slice(0, measure.indexOf('- ')).trim(), dataset.regionType);
@@ -160,10 +167,10 @@
                 var starts = ['Did you know that for {measure}: ', 'ABS statistics for {measure} show that:', 'Interesting statistics for {measure} is that:'];
                 var s = '<h2>{measureCategory}</h2>' + randomChoice(starts);
                 s += randomChoice([
-				' the highest value region was {topName} in {topState} with {topValue} {measureDesc} and the lowest value region was {bottomName} in {bottomState} with {bottomValue} {measureDesc}. ',
-				' the best region is {topName} in {topState} and has {topValue} {measureDesc} whilst the worst region is {bottomName} in {bottomState} at {bottomValue} {measureDesc}.',
-                '<ul><li>Highest {topName} - {topState}</li><li>{topValue} {measureType}</li><li>Lowest {bottomName} - {bottomState}</li><li>{bottomValue} {measureType}</li></ul>'
-				]);
+                    ' the highest value region was {topName} in {topState} with {topValue} {measureDesc} and the lowest value region was {bottomName} in {bottomState} with {bottomValue} {measureDesc}. ',
+                    ' the best region is {topName} in {topState} and has {topValue} {measureDesc} whilst the worst region is {bottomName} in {bottomState} at {bottomValue} {measureDesc}.',
+                    '<ul><li>Highest {topName} - {topState}</li><li>{topValue} {measureType}</li><li>Lowest {bottomName} - {bottomState}</li><li>{bottomValue} {measureType}</li></ul>'
+                ]);
                 s += randomChoice(['The average value of {count} regions was {average} {measureDesc}.', 'There were {count} regions with an average of {average} {measureDesc}. ']);
                 function nameReplace(s, name, value) {
                     var rn = '\{' + name + '\}';
@@ -178,7 +185,7 @@
                 var count = 0, total = 0.0;
                 var highValue = -1, lowValue = Infinity;
                 var topState, topName, bottomState, bottomName;
-                $('#result tbody tr').each(function() {
+                $('#result tbody tr').each(function () {
                     var tds = $('td', this);
 
                     if (!isNaN($(tds[3]).text())) {
@@ -220,9 +227,9 @@
             }
 
 
-            $(document).ready(function() {
+            $(document).ready(function () {
                 getCategories(dataConcept);
-                $('#repeat').click(function() {
+                $('#repeat').click(function () {
                     dataset = randomChoice(datasetids);
                     getCategories(dataConcept);
                 });
@@ -236,9 +243,9 @@
                 height: 50px;
                 width: 20em;
             }
-			#desc ul li:nth-child(even){
-				margin-left: 1em;
-			}
+            #desc ul li:nth-child(even){
+                margin-left: 1em;
+            }
         </style>
     </head>
     <body>
@@ -254,6 +261,6 @@
             <div id='result'></div>
         </div>
         <ul id='log'>
-		</ul>
+        </ul>
     </body>
 </html>
