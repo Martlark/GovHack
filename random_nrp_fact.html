@@ -16,6 +16,10 @@
             var dataset = {id: '', regionType: ''};
             var states = ['Australia', 'New South Wales', 'Victora', 'Queensland', 'South Australia', 'Western Australia', 'Tasmania', 'the Northern Territory', 'the ACT'];
 
+            /**
+             * add a spinning thing to the area that is requesting an update
+             * @param {type} place #id of where to put the spinner
+             */
             function waiting(place) {
                 $(place).html('<p>Waiting for result</p><img src="ajax-loader.gif"/>');
             }
@@ -69,7 +73,7 @@
                         var measure = randomChoice(measureCodes);
                         $('#item').html(measure.description);
                         $('#itemCode').val(measure.code);
-                        getAllRegions();
+                        //getAllRegions();
                     }
                 }).fail(function (jqxhr, textStatus, error) {
                     $('#repeat').show();
@@ -93,6 +97,10 @@
                 return s;
             }
 
+/**
+ * populate the regeions
+ 
+ */
             function getAllRegions() {
                 waiting('#result');
                 var url = serviceUrl + methodData;
