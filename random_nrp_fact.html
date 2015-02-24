@@ -240,8 +240,8 @@
                     return false;
                 }
                 $('.region').fadeIn('slow');
-                regionDescription('top', topName, topCode);
-                regionDescription('bottom', bottomName, bottomCode);
+                regionDescription('top', topName, topCode, topState);
+                regionDescription('bottom', bottomName, bottomCode, bottomState);
 
                 var average = count > 0 ? total / count : 0;
                 s = nameReplace(s, 'topState', topState);
@@ -265,8 +265,9 @@
              * @param {type} topBottom
              * @param {type} regionName
              * @param {type} regionCode
+             * @param {String} stateName
              */
-            function regionDescription(topBottom, regionName, regionCode) {
+            function regionDescription(topBottom, regionName, regionCode, stateName) {
                 var $div = $('#{0}Region'.format(topBottom));
                 $div.html('<h2 data-regionCode="{0}">{1}</h2>'.format(regionCode, regionName));
                 $div.append('<ul></ul>'.format(regionCode));
@@ -277,6 +278,7 @@
                     $('ul', $div).append('<li>{0}{1}<span></span>{2}</li>'.format(measure.desc, measure.pre, measure.post));
                     getLatestMeasureValue('#{0}Region ul li:nth-child({1}) span'.format(topBottom, i + 1), measure.code, regionCode);
                 });
+                $div.css('background-image', 'url(state_{0}.png)'.format(stateName).replace(' ','%20') );
             }
             function regionClick(region) {
                 var regionCode = $('h2', region).attr('data-regionCode');
@@ -330,6 +332,28 @@
             .region h2{
                 padding-top: 5px;
             }
+            @media only screen
+            and (min-device-width :500px)
+            {
+                .region {
+                    width: 40%;
+                    float: left;
+                }
+            }
+            @media only screen
+            and (max-device-width : 499px) {
+
+                #repeat {
+                    height: 100px;
+                    width: 100%;
+                    font-size: 60pt;
+                }
+                .region {
+                    width: 90%;
+                    clear: both;
+                }
+            }
+
         </style>
     </head>
     <body>
