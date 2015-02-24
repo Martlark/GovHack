@@ -14,8 +14,7 @@
             var dataConcept = 'MEASURE';
             var datasetids = [{id: 'ABS_NRP9_LGA', regionType: 'LGA2012'}, {id: 'ABS_NRP9_ASGS', regionType: 'SA4'}];
             var dataset = {id: '', regionType: ''};
-            var states = ['Australia', 'New South Wales', 'Victora', 'Queensland', 'South Australia', 'Western Australia', 'Tasmania', 'the Northern Territory', 'the ACT'];
-
+            var states = ['Australia', 'New South Wales', 'Victoria', 'Queensland', 'South Australia', 'Western Australia', 'Tasmania', 'the Northern Territory', 'the ACT'];
             /**
              * add a spinning thing to the area that is requesting an update
              * @param {type} place #id of where to put the spinner
@@ -53,12 +52,18 @@
                     });
                 };
             }
+            function ITTerror(message) {
+                $('#repeat').show();
+                $('#desc').html(message);
+                log(message);
+            }
             /**
              * retrieve all the categories for the concept
              * @param {string} concept
              * @returns {none}
              */
             function getCategories(concept) {
+                $('.region').hide();
                 $('#repeat').hide();
                 dataset = randomChoice(datasetids);
                 var url = serviceUrl + methodCodeList;
@@ -66,18 +71,16 @@
                 waiting('#desc');
                 $.getJSON(url, {datasetid: dataset.id, concept: concept}, function (data) {
                     if (data.exception) {
-                        $('#repeat').show();
-                        log('getCategories ITT error ' + data.exception);
+                        ITTerror('getCategories ITT error ' + data.exception);
                     } else {
                         var measureCodes = data.codes;
                         var measure = randomChoice(measureCodes);
                         $('#item').html(measure.description);
                         $('#itemCode').val(measure.code);
-                        //getAllRegions();
+                        doDataQuery();
                     }
                 }).fail(function (jqxhr, textStatus, error) {
-                    $('#repeat').show();
-                    log(textStatus + ' error ' + error);
+                    ITTerror(textStatus + ' error ' + error);
                 });
             }
             /**
@@ -97,25 +100,24 @@
                 return s;
             }
 
-/**
- * populate the regeions
- 
- */
-            function getAllRegions() {
+            /**
+             * run the query and format the table
+             
+             */
+            function doDataQuery() {
                 waiting('#result');
                 var url = serviceUrl + methodData;
                 var measure = $('#itemCode').val();
                 var and = dataConcept + '.' + measure + ',REGIONTYPE.' + dataset.regionType;
                 var or = regionConcept;
-
                 log(url + and + or);
                 waiting($('#result'));
                 $.getJSON(url, {datasetid: dataset.id, series: 'latest', gt: 0, and: and, or: or, format: 'htable'}, function (data) {
                     if (data.exception) {
-                        log(measure + ' ITT error ' + data.exception);
+                        ITTerror(measure + ' ITT error ' + data.exception);
                     } else {
                         $($('#result')).html(data.text);
-                        // add the state to the table
+                        // convert the region code to a state name and add the state to the table
                         $('#result table').find('tr').each(function (index) {
                             if (index == 0) {
                                 $(this).find('th').eq(0).after('<th>State</th>');
@@ -127,11 +129,32 @@
                         });
                     }
                 }).fail(function (jqxhr, textStatus, error) {
-                    log(textStatus + ' error ' + error);
-                    $('#repeat').show();
+                    ITTerror(textStatus + ' error ' + error);
                 }).done(function () {
                     if (!makeDescription()) {
-                        getCategories();
+                        // if description fails, then create and run another query
+                        getCategories(dataConcept);
+                    }
+                });
+            }
+            /**
+             * get the lastest value for the measure and region
+             
+             * @param {string} place - where to put the measure
+             * @param {type} measure
+             * @param {type} regionCode
+             * @returns {undefined}			 
+             */
+            function getLatestMeasureValue(place, measure, regionCode)
+            {
+                var url = serviceUrl + methodData;
+                var and = '{0}.{1},{2}.{3}'.format(dataConcept, measure, regionConcept, regionCode);
+                log(url + and);
+                $.getJSON(url, {datasetid: dataset.id, and: and, format: 'latest'}, function (data) {
+                    if (data.exception) {
+                        log(measure + ' ITT error ' + data.exception);
+                    } else {
+                        $(place).html(data.text);
                     }
                 });
             }
@@ -170,15 +193,15 @@
                     case 'years':
                         measureDesc = 'years';
                         break;
-
                 }
                 var starts = ['Did you know that for {measure}: ', 'ABS statistics for {measure} show that:', 'Interesting statistics for {measure} is that:'];
                 var s = '<h2>{measureCategory}</h2>' + randomChoice(starts);
                 s += randomChoice([
-                    ' the highest value region was {topName} in {topState} with {topValue} {measureDesc} and the lowest value region was {bottomName} in {bottomState} with {bottomValue} {measureDesc}. ',
-                    ' the best region is {topName} in {topState} and has {topValue} {measureDesc} whilst the worst region is {bottomName} in {bottomState} at {bottomValue} {measureDesc}.',
-                    '<ul><li>Highest {topName} - {topState}</li><li>{topValue} {measureType}</li><li>Lowest {bottomName} - {bottomState}</li><li>{bottomValue} {measureType}</li></ul>'
+                    ' the highest value region was {topName} in {topState} <img src="state_{topState}.png"> with {topValue} {measureDesc} and the lowest value region was {bottomName} in {bottomState} <img src="state_{bottomState}.png">with {bottomValue} {measureDesc}.',
+                    ' the best region is {topName} in {topState}  <img src="state_{topState}.png"> and has {topValue} {measureDesc} whilst the worst region is {bottomName} in {bottomState} <img src="state_{bottomState}.png">at {bottomValue} {measureDesc}.',
+                    '<ul><li><img src="state_{topState}.png">Highest {topName} - {topState}</li><li>{topValue} {measureType}</li><li><img src="state_{bottomState}.png">Lowest {bottomName} - {bottomState}</li><li>{bottomValue} {measureType}</li></ul>'
                 ]);
+                s += '<br/>';
                 s += randomChoice(['The average value of {count} regions was {average} {measureDesc}.', 'There were {count} regions with an average of {average} {measureDesc}. ']);
                 function nameReplace(s, name, value) {
                     var rn = '\{' + name + '\}';
@@ -192,10 +215,9 @@
                 }
                 var count = 0, total = 0.0;
                 var highValue = -1, lowValue = Infinity;
-                var topState, topName, bottomState, bottomName;
+                var topState, topName, bottomState, bottomName, topCode, bottomCode;
                 $('#result tbody tr').each(function () {
                     var tds = $('td', this);
-
                     if (!isNaN($(tds[3]).text())) {
                         count++;
                         var v = Number($(tds[3]).text());
@@ -204,17 +226,23 @@
                             highValue = v;
                             topState = $(tds[1]).text();
                             topName = $(tds[2]).text();
+                            topCode = $(tds[0]).text();
                         }
                         if (v < lowValue) {
                             lowValue = v;
                             bottomState = $(tds[1]).text();
                             bottomName = $(tds[2]).text();
+                            bottomCode = $(tds[0]).text();
                         }
                     }
                 });
                 if (count < 1) {
                     return false;
                 }
+                $('.region').fadeIn('slow');
+                regionDescription('top', topName, topCode);
+                regionDescription('bottom', bottomName, bottomCode);
+
                 var average = count > 0 ? total / count : 0;
                 s = nameReplace(s, 'topState', topState);
                 s = nameReplace(s, 'topName', topName);
@@ -230,8 +258,30 @@
                 s = nameReplace(s, 'count', count);
                 $('#desc').html(s);
                 $('#repeat').show();
-
                 return true;
+            }
+            /**
+             * format a div of information about the given region
+             * @param {type} topBottom
+             * @param {type} regionName
+             * @param {type} regionCode
+             */
+            function regionDescription(topBottom, regionName, regionCode) {
+                var $div = $('#{0}Region'.format(topBottom));
+                $div.html('<h2 data-regionCode="{0}">{1}</h2>'.format(regionCode, regionName));
+                $div.append('<ul></ul>'.format(regionCode));
+                $.each([{code: 'ENV34', desc: 'Area', pre: ' ', post: ' (ha)'},
+                    {code: 'POP68', desc: 'Population', pre: ' ', post: ''},
+                    {code: 'EC24', desc: 'Average salary', pre: ' $', post: ''},
+                    {code: 'EC40', desc: 'Unemployment', pre: ' ', post: '%'}], function (i, measure) {
+                    $('ul', $div).append('<li>{0}{1}<span></span>{2}</li>'.format(measure.desc, measure.pre, measure.post));
+                    getLatestMeasureValue('#{0}Region ul li:nth-child({1}) span'.format(topBottom, i + 1), measure.code, regionCode);
+                });
+            }
+            function regionClick(region) {
+                var regionCode = $('h2', region).attr('data-regionCode');
+                var page = 'http://stat.abs.gov.au/itt/r.jsp?RegionSummary&region={0}&dataset={1}&geoconcept=REGION&measure=MEASURE&datasetASGS=ABS_NRP9_ASGS&datasetLGA=ABS_NRP9_LGA&regionLGA=REGION&regionASGS=REGION'.format(regionCode, dataset.id);
+                window.open(page, "_blank");
             }
 
 
@@ -240,6 +290,9 @@
                 $('#repeat').click(function () {
                     dataset = randomChoice(datasetids);
                     getCategories(dataConcept);
+                });
+                $('.region').click(function () {
+                    regionClick(this);
                 });
             });
         </script>
@@ -253,6 +306,29 @@
             }
             #desc ul li:nth-child(even){
                 margin-left: 1em;
+            }
+            #desc img {
+                width: 2em;
+                height: 2.5em;
+                margin-right: 0.5em;
+            }
+            .region {
+                background-color: #cccccc;
+                border-radius: 5px;
+                padding: 5px 15px 15px 15px;
+                margin-bottom: 15px;
+                margin-right: 2em;
+                cursor: pointer;
+                margin-left: 2em;
+            }
+            .region ul {
+                padding-left: 1em;
+            }
+            .region li {
+                list-style-type: square;
+            }
+            .region h2{
+                padding-top: 5px;
             }
         </style>
     </head>
@@ -268,6 +344,8 @@
             <h3 style='clear: both'>Event log</h3>
             <div id='result'></div>
         </div>
+        <div class='region' id='topRegion' title='Click to open ABS region summary'></div>
+        <div class='region' id='bottomRegion' title='Click to open ABS region summary'></div>
         <ul id='log'>
         </ul>
     </body>
